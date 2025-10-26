@@ -1,65 +1,180 @@
-import Image from "next/image";
+"use client";
+
+import Filtros from "@/components/Filtros";
+import Header from "@/components/Header";
+import LivroCard from "@/components/LivroCard";
+import SetupInstrucoes from "@/components/SetupInstrucoes";
+import { isSupabaseConfigured, Livro, supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
 
 export default function Home() {
+  const [livros, setLivros] = useState<Livro[]>([]);
+  const [livrosFiltrados, setLivrosFiltrados] = useState<Livro[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busca, setBusca] = useState("");
+  const [generoFiltro, setGeneroFiltro] = useState("");
+  const [statusFiltro, setStatusFiltro] = useState("");
+  const [tagsFiltro, setTagsFiltro] = useState<string[]>([]);
+  const [generos, setGeneros] = useState<string[]>([]);
+  const [todasTags, setTodasTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    carregarLivros();
+  }, []);
+
+  useEffect(() => {
+    filtrarLivros();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [livros, busca, generoFiltro, statusFiltro, tagsFiltro]);
+
+  async function carregarLivros() {
+    try {
+      const { data, error } = await supabase
+        .from("livros")
+        .select("*")
+        .order("data_adicionado", { ascending: false });
+
+      if (error) throw error;
+
+      setLivros(data || []);
+
+      // Extrair gêneros únicos
+      const generosUnicos = Array.from(
+        new Set(data?.map((livro) => livro.genero).filter(Boolean)),
+      ) as string[];
+      setGeneros(generosUnicos);
+
+      // Extrair todas as tags únicas
+      const tagsUnicas = Array.from(
+        new Set(data?.flatMap((livro) => livro.tags || []).filter(Boolean)),
+      ) as string[];
+      setTodasTags(tagsUnicas);
+    } catch (error) {
+      console.error("Erro ao carregar livros:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function filtrarLivros() {
+    let resultado = [...livros];
+
+    // Filtro de busca
+    if (busca) {
+      resultado = resultado.filter(
+        (livro) =>
+          livro.titulo.toLowerCase().includes(busca.toLowerCase()) ||
+          livro.autor.toLowerCase().includes(busca.toLowerCase()),
+      );
+    }
+
+    // Filtro de gênero
+    if (generoFiltro) {
+      resultado = resultado.filter((livro) => livro.genero === generoFiltro);
+    }
+
+    // Filtro de status
+    if (statusFiltro) {
+      resultado = resultado.filter((livro) => livro.status === statusFiltro);
+    }
+
+    // Filtro de tags (livro deve ter TODAS as tags selecionadas)
+    if (tagsFiltro.length > 0) {
+      resultado = resultado.filter((livro) =>
+        tagsFiltro.every((tag) => livro.tags?.includes(tag)),
+      );
+    }
+
+    setLivrosFiltrados(resultado);
+  }
+
+  // Verificar se o Supabase está configurado
+  if (!isSupabaseConfigured()) {
+    return <SetupInstrucoes />;
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <Header />
+
+      <main className="flex-grow container mx-auto px-4 py-8 pb-16">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-800 mb-2">
+            Livros Disponíveis
+          </h2>
+          <p className="text-gray-600">
+            Explore nossa coleção de livros compartilhados pela comunidade
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+
+        <Filtros
+          busca={busca}
+          setBusca={setBusca}
+          generoFiltro={generoFiltro}
+          setGeneroFiltro={setGeneroFiltro}
+          statusFiltro={statusFiltro}
+          setStatusFiltro={setStatusFiltro}
+          tagsFiltro={tagsFiltro}
+          setTagsFiltro={setTagsFiltro}
+          generos={generos}
+          todasTags={todasTags}
+        />
+
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        ) : livrosFiltrados.length === 0 ? (
+          <div className="text-center py-20">
+            <svg
+              className="mx-auto h-12 w-12 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+              />
+            </svg>
+            <h3 className="mt-4 text-lg font-medium text-gray-900">
+              Nenhum livro encontrado
+            </h3>
+            <p className="mt-2 text-gray-500">
+              {busca || generoFiltro || statusFiltro
+                ? "Tente ajustar os filtros"
+                : "Adicione livros no painel admin"}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="mb-4 text-sm text-gray-600">
+              {livrosFiltrados.length}{" "}
+              {livrosFiltrados.length === 1
+                ? "livro encontrado"
+                : "livros encontrados"}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {livrosFiltrados.map((livro) => (
+                <LivroCard key={livro.id} livro={livro} />
+              ))}
+            </div>
+          </>
+        )}
       </main>
+
+      <footer className="bg-gray-800 text-white py-8 mt-auto">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-sm">
+            Biblioteca Comunitária - Compartilhando conhecimento
+          </p>
+          <p className="text-xs text-gray-400 mt-2">
+            Pegue um livro, deixe um livro
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
